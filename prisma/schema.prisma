@@ -1,0 +1,97 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                   String                 @id @default(uuid())
+  githubId             String                 @unique
+  username             String                 @unique
+  name                 String?
+  email                String?
+  avatarUrl            String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  trackedRepositories  TrackedRepository[]
+  contributionSnapshots ContributionSnapshot[]
+  developerScores      DeveloperScore[]
+  coachingReports      CoachingReport[]
+  resumeGenerations    ResumeGeneration[]
+  readinessReports     ReadinessReport[]
+}
+
+model TrackedRepository {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  owner       String
+  name        String
+  description String?
+  stars       Int      @default(0)
+  forks       Int      @default(0)
+  openIssues  Int      @default(0)
+  lastSyncedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, owner, name])
+}
+
+model ContributionSnapshot {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  commits   Int      @default(0)
+  prs       Int      @default(0)
+  issues    Int      @default(0)
+  reviews   Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+model DeveloperScore {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  overallScore     Int      @default(0)
+  activityScore    Int      @default(0)
+  qualityScore     Int      @default(0)
+  openSourceScore  Int      @default(0)
+  communityScore   Int      @default(0)
+  createdAt        DateTime @default(now())
+}
+
+model CoachingReport {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  summary         String
+  recommendations String   // Stored as JSON string
+  gaps            String   // Stored as JSON string
+  createdAt       DateTime @default(now())
+}
+
+model ResumeGeneration {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bulletPoints   String   // Stored as JSON string
+  linkedinDesc   String
+  readmeContent  String
+  createdAt      DateTime @default(now())
+}
+
+model ReadinessReport {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  overallScore  Int      @default(0)
+  missingSkills String   // Stored as JSON string
+  roadmap       String   // Stored as JSON string
+  createdAt     DateTime @default(now())
+}
