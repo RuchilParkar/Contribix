@@ -193,7 +193,188 @@ export function generateMockProfile(username: string): ProfileData {
   };
 }
 
+async function fetchGitHubUserDataGraphQL(username: string, token: string): Promise<ProfileData> {
+  const query = `
+    query($username: String!) {
+      user(login: $username) {
+        name
+        login
+        avatarUrl
+        bio
+        createdAt
+        followers {
+          totalCount
+        }
+        following {
+          totalCount
+        }
+        repositories(first: 100, privacy: PUBLIC, orderBy: {field: STARGAZERS, direction: DESC}) {
+          totalCount
+          nodes {
+            name
+            description
+            stargazerCount
+            forkCount
+            primaryLanguage {
+              name
+            }
+            url
+            updatedAt
+          }
+        }
+        contributionsCollection {
+          totalCommitContributions
+          totalPullRequestContributions
+          totalIssueContributions
+          totalPullRequestReviewContributions
+          contributionCalendar {
+            totalContributions
+            weeks {
+              contributionDays {
+                date
+                contributionCount
+                contributionLevel
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const res = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    headers: {
+      'Authorization': `bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query, variables: { username } }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`GraphQL API returned status ${res.status}`);
+  }
+
+  const json = await res.json();
+  if (json.errors) {
+    throw new Error(json.errors[0]?.message || 'GraphQL query errors');
+  }
+
+  const gqlUser = json.data?.user;
+  if (!gqlUser) {
+    throw new Error(`User ${username} not found on GitHub.`);
+  }
+
+  const profile: GitHubProfile = {
+    username: gqlUser.login,
+    name: gqlUser.name || gqlUser.login,
+    avatarUrl: gqlUser.avatarUrl,
+    bio: gqlUser.bio || 'Developer on GitHub',
+    followers: gqlUser.followers?.totalCount || 0,
+    following: gqlUser.following?.totalCount || 0,
+    publicRepos: gqlUser.repositories?.totalCount || 0,
+    createdAt: gqlUser.createdAt,
+  };
+
+  interface GqlRepoNode {
+    name: string;
+    description: string | null;
+    stargazerCount: number;
+    forkCount: number;
+    primaryLanguage: { name: string } | null;
+    url: string;
+    updatedAt: string;
+  }
+
+  const repos: RepoDetails[] = (gqlUser.repositories?.nodes || []).map((r: GqlRepoNode) => ({
+    name: r.name,
+    owner: username,
+    description: r.description || '',
+    stars: r.stargazerCount || 0,
+    forks: r.forkCount || 0,
+    openIssues: 0,
+    language: r.primaryLanguage?.name || 'Markdown',
+    languages: r.primaryLanguage?.name ? { [r.primaryLanguage.name]: 10000 } : {},
+    url: r.url,
+    updatedAt: r.updatedAt,
+  }));
+
+  const languages: Record<string, number> = {};
+  repos.forEach(r => {
+    if (r.language) {
+      languages[r.language] = (languages[r.language] || 0) + 1;
+    }
+  });
+
+  const heatmapData: ContributionDay[] = [];
+  const levelMap: Record<string, 0 | 1 | 2 | 3 | 4> = {
+    NONE: 0,
+    FIRST_QUARTILE: 1,
+    SECOND_QUARTILE: 2,
+    THIRD_QUARTILE: 3,
+    FOURTH_QUARTILE: 4,
+  };
+
+  interface GqlContributionDay {
+    date: string;
+    contributionCount: number;
+    contributionLevel: string;
+  }
+
+  interface GqlContributionWeek {
+    contributionDays: GqlContributionDay[];
+  }
+
+  const weeks = gqlUser.contributionsCollection?.contributionCalendar?.weeks || [];
+  (weeks as GqlContributionWeek[]).forEach((week: GqlContributionWeek) => {
+    const days = week.contributionDays || [];
+    days.forEach((day: GqlContributionDay) => {
+      heatmapData.push({
+        date: day.date,
+        count: day.contributionCount || 0,
+        level: levelMap[day.contributionLevel] || 0,
+      });
+    });
+  });
+
+  const commitsOverTime = heatmapData
+    .filter(d => d.count > 0)
+    .map(d => ({ date: d.date, count: d.count }));
+
+  const weeklyCommitCounts: number[] = [];
+  const last84Days = heatmapData.slice(-84);
+  for (let w = 0; w < 12; w++) {
+    let weekTotal = 0;
+    for (let d = 0; d < 7; d++) {
+      const idx = w * 7 + d;
+      weekTotal += last84Days[idx]?.count || 0;
+    }
+    weeklyCommitCounts.push(weekTotal);
+  }
+
+  return {
+    profile,
+    repos,
+    languages: Object.keys(languages).length > 0 ? languages : { Markdown: 1 },
+    commitsOverTime,
+    weeklyCommitCounts,
+    prCount: gqlUser.contributionsCollection?.totalPullRequestContributions || 0,
+    issueCount: gqlUser.contributionsCollection?.totalIssueContributions || 0,
+    reviewCount: gqlUser.contributionsCollection?.totalPullRequestReviewContributions || 0,
+    heatmapData,
+  };
+}
+
 export async function fetchGitHubUserData(username: string): Promise<ProfileData> {
+  if (env.GITHUB_TOKEN) {
+    try {
+      console.log(`Fetching GraphQL contribution data for: ${username}`);
+      return await fetchGitHubUserDataGraphQL(username, env.GITHUB_TOKEN);
+    } catch (gqlErr) {
+      console.warn('Failed to fetch from GitHub GraphQL API, falling back to REST:', gqlErr);
+    }
+  }
+
   // If GITHUB_TOKEN or similar client setup is configured, we can fetch real API:
   try {
     const headers: HeadersInit = {};

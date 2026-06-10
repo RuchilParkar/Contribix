@@ -1,4 +1,4 @@
-import { ProfileData } from '../github';
+import type { ProfileData } from '../github';
 
 export interface ScoreBreakdown {
   overall: number;

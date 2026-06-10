@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { ProfileData } from './github';
+import type { ProfileData } from './github';
 import { calculateDeveloperScore, ScoreBreakdown } from './scoring';
 import { getGitHubUserDataAction } from './actions';
 
