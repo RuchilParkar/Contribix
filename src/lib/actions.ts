@@ -1,14 +1,20 @@
 'use server';
 
 import { prisma } from './prisma';
+import { env } from './env';
+import { logError } from './logger';
+import { getCachedGitHubUserData } from './cache/github';
+import { getAICoachingAdvice } from './ai';
+import { calculateDeveloperScore } from './scoring';
 
 // Helper to catch database errors and return a custom offline flag
 async function handleDbCall<T>(fn: () => Promise<T>): Promise<{ success: boolean; data?: T; error?: string }> {
   try {
     const data = await fn();
     return { success: true, data };
-  } catch (error: any) {
-    console.warn('Database operation failed, falling back to client-side localStorage:', error.message || error);
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.warn('Database operation failed, falling back to client-side localStorage:', errorMsg);
     return { success: false, error: 'DB_OFFLINE' };
   }
 }
@@ -122,8 +128,8 @@ export async function getDeveloperScores(userId: string) {
 export async function saveCoachingReport(
   userId: string,
   summary: string,
-  recommendations: any,
-  gaps: any
+  recommendations: unknown,
+  gaps: unknown
 ) {
   return handleDbCall(async () => {
     return await prisma.coachingReport.create({
@@ -149,7 +155,7 @@ export async function getCoachingReports(userId: string) {
 // Resume Generations
 export async function saveResumeGeneration(
   userId: string,
-  bulletPoints: any,
+  bulletPoints: unknown,
   linkedinDesc: string,
   readmeContent: string
 ) {
@@ -169,8 +175,8 @@ export async function saveResumeGeneration(
 export async function saveReadinessReport(
   userId: string,
   overallScore: number,
-  missingSkills: any,
-  roadmap: any
+  missingSkills: unknown,
+  roadmap: unknown
 ) {
   return handleDbCall(async () => {
     return await prisma.readinessReport.create({
@@ -182,4 +188,61 @@ export async function saveReadinessReport(
       },
     });
   });
+}
+
+// Server-side wrapper actions for safety and performance
+
+export async function getGitHubUserDataAction(username: string) {
+  try {
+    const data = await getCachedGitHubUserData(username);
+    return { success: true, data };
+  } catch (error) {
+    logError(error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function getAICoachingAdviceAction(username: string, userPrompt?: string) {
+  try {
+    const data = await getCachedGitHubUserData(username);
+    const score = calculateDeveloperScore(data);
+    const advice = await getAICoachingAdvice(data, score, userPrompt);
+    const isOpenAiActive = !!env.OPENAI_API_KEY;
+    return { success: true, data: { ...advice, isOpenAiActive } };
+  } catch (error) {
+    logError(error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function fetchGitHubRepoDetailsAction(owner: string, name: string) {
+  try {
+    const headers: HeadersInit = {};
+    if (env.GITHUB_TOKEN) {
+      headers['Authorization'] = `token ${env.GITHUB_TOKEN}`;
+    }
+
+    const res = await fetch(`https://api.github.com/repos/${owner}/${name}`, { headers });
+    if (!res.ok) {
+      throw new Error(`GitHub API returned status ${res.status}`);
+    }
+
+    const repoData = await res.ok ? await res.json() : null;
+    if (!repoData) {
+      throw new Error('Failed to parse repository details.');
+    }
+
+    return {
+      success: true,
+      data: {
+        description: repoData.description || 'Tracked developer repository.',
+        stars: repoData.stargazers_count || 0,
+        forks: repoData.forks_count || 0,
+        openIssues: repoData.open_issues_count || 0,
+      }
+    };
+  } catch (error) {
+    logError(error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }

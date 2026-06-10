@@ -2,20 +2,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useProfile } from '../../../lib/profile-context';
-import { getAICoachingAdvice, CoachingReport } from '../../../lib/ai';
-import { motion, AnimatePresence } from 'framer-motion';
+import { getAICoachingAdviceAction } from '../../../lib/actions';
+import { CoachingReport } from '../../../lib/ai';
 import {
   Bot,
   User,
   Send,
-  Sparkles,
   AlertTriangle,
   FolderLock,
   GitBranch,
-  CalendarDays,
   Loader2,
   BookmarkPlus,
-  Compass,
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -26,6 +23,7 @@ interface ChatMessage {
 export default function CoachPage() {
   const { profileData, score, isLoading } = useProfile();
   const [advice, setAdvice] = useState<CoachingReport | null>(null);
+  const [isOpenAiActive, setIsOpenAiActive] = useState(false);
   const [activeTab, setActiveTab] = useState<'gaps' | 'repos' | 'roadmap' | 'os'>('gaps');
   
   // Chat state
@@ -39,18 +37,22 @@ export default function CoachPage() {
     if (profileData && score) {
       // Load general advice
       const loadInitialAdvice = async () => {
-        const res = await getAICoachingAdvice(profileData, score);
-        setAdvice(res);
-        setMessages([
-          {
-            role: 'coach',
-            text: `Hi there! I am your Contribix AI GitHub Coach. I've analyzed your telemetry profile. Your score stands at **${score.overall}/100** (Rank: **${score.overall >= 70 ? 'Senior Engineer' : 'Developer'}**). 
+        const res = await getAICoachingAdviceAction(profileData.profile.username);
+        if (res.success && res.data) {
+          const adviceData = res.data;
+          setAdvice(adviceData);
+          setIsOpenAiActive(adviceData.isOpenAiActive);
+          setMessages([
+            {
+              role: 'coach',
+              text: `Hi there! I am your Contribix AI GitHub Coach. I've analyzed your telemetry profile. Your score stands at **${score.overall}/100** (Rank: **${score.overall >= 70 ? 'Senior Engineer' : 'Developer'}**). 
 
-${res.summary}
+${adviceData.summary}
 
 Ask me anything about learning new programming languages, improving repository quality, or formatting code for recruiter profiles!`,
-          },
-        ]);
+            },
+          ]);
+        }
       };
       loadInitialAdvice();
     }
@@ -72,15 +74,18 @@ Ask me anything about learning new programming languages, improving repository q
 
     try {
       // Call coaching advice action with the user prompt
-      const res = await getAICoachingAdvice(profileData, score, userText);
-      
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'coach',
-          text: res.chatResponse || `I've analyzed your profile and recommendation log. To address "${userText}", I suggest reviewing the Skill Gaps and Repository Review recommendations. Let me know if you want detailed notes on code reviews or CI/CD pipelines!`,
-        },
-      ]);
+      const res = await getAICoachingAdviceAction(profileData.profile.username, userText);
+      if (res.success && res.data) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'coach',
+            text: res.data.chatResponse || `I've analyzed your profile and recommendation log. To address "${userText}", I suggest reviewing the Skill Gaps and Repository Review recommendations. Let me know if you want detailed notes on code reviews or CI/CD pipelines!`,
+          },
+        ]);
+      } else {
+        throw new Error(res.error || 'Failed to retrieve coaching advice.');
+      }
     } catch (err) {
       console.error(err);
       setMessages((prev) => [
@@ -112,7 +117,7 @@ Ask me anything about learning new programming languages, improving repository q
         <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-2">
           AI GitHub Coach
           <span className="px-2 py-0.5 rounded-full bg-blue-900/40 border border-blue-500/30 text-[10px] text-blue-400 font-mono font-bold">
-            {process.env.NEXT_PUBLIC_OPENAI_API_KEY ? 'OPENAI MODEL' : 'LOCAL ENGINE'}
+            {isOpenAiActive ? 'OPENAI MODEL' : 'LOCAL ENGINE'}
           </span>
         </h1>
         <p className="text-xs text-slate-400">Personalized portfolio reviews, developer gaps detection, and customized career roadmaps.</p>
@@ -194,15 +199,15 @@ Ask me anything about learning new programming languages, improving repository q
         <div className="lg:col-span-2 flex flex-col h-[520px] rounded-2xl bg-slate-900/30 border border-slate-850/60 overflow-hidden">
           {/* Tabs header */}
           <div className="grid grid-cols-4 border-b border-slate-850/60 bg-slate-950/20 text-center text-[10px] font-mono font-semibold">
-            {[
+            {([
               { id: 'gaps', label: 'Gaps' },
               { id: 'repos', label: 'Repos' },
               { id: 'roadmap', label: 'Roadmap' },
               { id: 'os', label: 'OS Recs' },
-            ].map((t) => (
+            ] as const).map((t) => (
               <button
                 key={t.id}
-                onClick={() => setActiveTab(t.id as any)}
+                onClick={() => setActiveTab(t.id)}
                 className={`py-3.5 border-r border-slate-850 last:border-r-0 transition-colors uppercase ${
                   activeTab === t.id
                     ? 'bg-slate-900/50 text-white border-b-2 border-b-blue-500'

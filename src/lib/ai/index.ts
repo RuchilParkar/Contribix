@@ -1,5 +1,6 @@
 import { ProfileData } from '../github';
 import { ScoreBreakdown } from '../scoring';
+import { env } from '../env';
 
 export interface CoachingReport {
   summary: string;
@@ -170,7 +171,7 @@ ${repoShowcase}
 export async function getAICoachingAdvice(data: ProfileData, score: ScoreBreakdown, userPrompt?: string): Promise<CoachingReport & { chatResponse?: string }> {
   const localAdvice = generateLocalCoachAdvice(data, score);
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.OPENAI_API_KEY) {
     // If there's a custom chat question, generate a realistic response
     let chatResponse: string | undefined;
     if (userPrompt) {
@@ -219,7 +220,7 @@ export async function getAICoachingAdvice(data: ProfileData, score: ScoreBreakdo
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        'Authorization': `Bearer ${env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',

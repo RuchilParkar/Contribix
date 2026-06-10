@@ -1,17 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useProfile } from '../../../lib/profile-context';
-import { generateLocalResumeData, ResumeData } from '../../../lib/ai';
-import { motion } from 'framer-motion';
+import { generateLocalResumeData } from '../../../lib/ai';
 import {
   FileText,
   Briefcase,
   Clipboard,
   Check,
-  Award,
-  Sparkles,
-  AlertCircle,
   FileCode,
 } from 'lucide-react';
 
@@ -24,16 +20,10 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export default function ResumePage() {
   const { profileData, isLoading } = useProfile();
-  const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [activeTab, setActiveTab] = useState<'resume' | 'linkedin' | 'readme'>('resume');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (profileData) {
-      const generated = generateLocalResumeData(profileData);
-      setResumeData(generated);
-    }
-  }, [profileData]);
+  const resumeData = profileData ? generateLocalResumeData(profileData) : null;
 
   const handleCopyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -65,17 +55,17 @@ export default function ResumePage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column: Navigator tabs */}
         <div className="flex flex-col gap-3">
-          {[
+          {([
             { id: 'resume', label: 'Resume Bullets', icon: Briefcase, desc: 'ATS-Friendly accomplishments' },
             { id: 'linkedin', label: 'LinkedIn Summaries', icon: FileText, desc: 'Project descriptions for posts' },
             { id: 'readme', label: 'GitHub README', icon: GithubIcon, desc: 'Markdown portfolio profiles' },
-          ].map((tab) => {
+          ] as const).map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id)}
                 className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 group ${
                   isActive
                     ? 'bg-slate-900 border-slate-750 text-white shadow-inner'
@@ -180,7 +170,7 @@ export default function ResumePage() {
                     <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
                       <FileCode className="h-4 w-4 text-purple-400" /> GitHub Profile README Template
                     </h3>
-                    <p className="text-[10px] font-mono text-slate-500">Copy this markup code directly into your username's README repository</p>
+                    <p className="text-[10px] font-mono text-slate-500">Copy this markup code directly into your username&apos;s README repository</p>
                   </div>
                   <button
                     onClick={() => handleCopyToClipboard(resumeData.profileReadme, 'readme-markdown')}

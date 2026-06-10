@@ -1,3 +1,5 @@
+import { env } from '../env';
+
 export interface GitHubProfile {
   username: string;
   name: string;
@@ -195,8 +197,8 @@ export async function fetchGitHubUserData(username: string): Promise<ProfileData
   // If GITHUB_TOKEN or similar client setup is configured, we can fetch real API:
   try {
     const headers: HeadersInit = {};
-    if (process.env.GITHUB_ACCESS_TOKEN) {
-      headers['Authorization'] = `token ${process.env.GITHUB_ACCESS_TOKEN}`;
+    if (env.GITHUB_TOKEN) {
+      headers['Authorization'] = `token ${env.GITHUB_TOKEN}`;
     }
 
     const userRes = await fetch(`https://api.github.com/users/${username}`, { headers });
@@ -208,7 +210,19 @@ export async function fetchGitHubUserData(username: string): Promise<ProfileData
     const reposRes = await fetch(`https://api.github.com/users/${username}/repos?per_page=100&sort=updated`, { headers });
     const rawRepos = reposRes.ok ? await reposRes.json() : [];
 
-    const repos: RepoDetails[] = rawRepos.map((r: any) => ({
+    interface GitHubApiRepo {
+      name: string;
+      owner: { login: string };
+      description: string | null;
+      stargazers_count: number;
+      forks_count: number;
+      open_issues_count: number;
+      html_url: string;
+      language: string | null;
+      updated_at: string;
+    }
+
+    const repos: RepoDetails[] = (rawRepos as GitHubApiRepo[]).map((r) => ({
       name: r.name,
       owner: r.owner.login,
       description: r.description || '',

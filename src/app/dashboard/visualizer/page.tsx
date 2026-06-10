@@ -206,7 +206,7 @@ export default function VisualizerPage() {
                   <Tooltip
                     contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
                     itemStyle={{ color: '#cbd5e1', fontSize: '12px' }}
-                    formatter={(val: any) => {
+                    formatter={(val) => {
                       const numVal = Number(val || 0);
                       return [`${Math.round((numVal / totalLangSize) * 100)}%`, 'Bytes'];
                     }}

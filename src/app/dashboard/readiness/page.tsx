@@ -5,14 +5,11 @@ import { useProfile } from '../../../lib/profile-context';
 import { motion } from 'framer-motion';
 import {
   GraduationCap,
-  Briefcase,
   AlertCircle,
   CheckCircle,
-  HelpCircle,
   Terminal,
   BookOpen,
   ArrowRight,
-  TrendingUp,
 } from 'lucide-react';
 
 const TRACKS = {
@@ -100,10 +97,8 @@ export default function ReadinessPage() {
   let readinessScore = Math.round(score.overall * 0.45);
 
   // 2. Language match bonus (+10% per required language in profile, max 30%)
-  let matchedLangs = 0;
   currentTrack.requiredLangs.forEach((lang) => {
     if (languages[lang] !== undefined) {
-      matchedLangs++;
       readinessScore += 10;
     }
   });
@@ -136,18 +131,15 @@ export default function ReadinessPage() {
   // Track descriptions
   let statusBanner = 'border-slate-850/60 bg-slate-900/10';
   let scoreColor = 'text-blue-400';
-  let progressColor = 'stroke-blue-500';
   let rankLabel = 'BASIC READINESS';
 
   if (readinessScore >= 80) {
     statusBanner = 'border-emerald-500/20 bg-emerald-950/5';
     scoreColor = 'text-emerald-400';
-    progressColor = 'stroke-emerald-500';
     rankLabel = 'EXCELLENT FIT';
   } else if (readinessScore >= 60) {
     statusBanner = 'border-purple-500/20 bg-purple-950/5';
     scoreColor = 'text-purple-400';
-    progressColor = 'stroke-purple-500';
     rankLabel = 'AVERAGE READINESS';
   }
 

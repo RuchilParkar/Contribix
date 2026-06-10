@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   BarChart3,
   Calendar,
@@ -28,7 +28,6 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { username, profileData, isLoading, searchProfile, error } = useProfile();
   
   const [searchInput, setSearchInput] = useState('');

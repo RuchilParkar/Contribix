@@ -139,7 +139,7 @@ export default function Home() {
                 type="text"
                 value={usernameInput}
                 onChange={(e) => setUsernameInput(e.target.value)}
-                placeholder="Enter GitHub Username (e.g., gaearon)"
+                placeholder="Enter GitHub Username (e.g., RuchilParkar)"
                 className="w-full pl-5 pr-4 py-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-200 placeholder-slate-500 shadow-inner text-sm transition-all duration-300"
                 required
               />
@@ -155,7 +155,7 @@ export default function Home() {
           {/* Prompt suggestions */}
           <div className="flex items-center justify-center gap-2.5 text-xs text-slate-500">
             <span>Try searching:</span>
-            {['gaearon', 'yyx990803', 'addyosmani'].map((name) => (
+            {['RuchilParkar', 'yyx990803', 'addyosmani'].map((name) => (
               <button
                 key={name}
                 onClick={() => setUsernameInput(name)}
@@ -180,7 +180,7 @@ export default function Home() {
               return (
                 <div
                   key={index}
-                  onClick={() => router.push(`/dashboard/visualizer?user=gaearon`)}
+                  onClick={() => router.push(`/dashboard/visualizer?user=RuchilParkar`)}
                   className={`p-6 rounded-2xl bg-gradient-to-b ${feat.color} border backdrop-blur-sm hover:scale-[1.02] hover:bg-slate-900/40 transition-all duration-300 cursor-pointer group flex flex-col justify-between`}
                 >
                   <div>

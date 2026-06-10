@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useProfile } from '../../../lib/profile-context';
-import { saveTrackedRepository, getTrackedRepositories, removeTrackedRepository } from '../../../lib/actions';
+import { saveTrackedRepository, getTrackedRepositories, removeTrackedRepository, fetchGitHubRepoDetailsAction } from '../../../lib/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GitPullRequest,
@@ -22,7 +22,7 @@ interface LocalRepo {
   id: string;
   owner: string;
   name: string;
-  description: string;
+  description: string | null;
   stars: number;
   forks: number;
   openIssues: number;
@@ -38,11 +38,11 @@ export default function TrackerPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   // Load tracked repos from server or localStorage fallback
-  const loadTrackedRepos = async () => {
+  const loadTrackedRepos = useCallback(async () => {
     if (!profileData) return;
     const res = await getTrackedRepositories(profileData.profile.username);
     if (res.success && res.data) {
-      setTrackedRepos(res.data as any);
+      setTrackedRepos(res.data as unknown as LocalRepo[]);
     } else {
       // localStorage fallback
       const stored = localStorage.getItem(`tracked_repos_${profileData.profile.username}`);
@@ -76,13 +76,15 @@ export default function TrackerPage() {
         setTrackedRepos(defaults);
       }
     }
-  };
+  }, [profileData]);
 
   useEffect(() => {
     if (profileData) {
-      loadTrackedRepos();
+      Promise.resolve().then(() => {
+        loadTrackedRepos();
+      });
     }
-  }, [profileData]);
+  }, [profileData, loadTrackedRepos]);
 
   // Handle Track repo submission
   const handleTrackRepo = async (e: React.FormEvent) => {
@@ -104,24 +106,18 @@ export default function TrackerPage() {
     const name = parts[1];
 
     try {
-      // Try to fetch real repository details from GitHub API to show high fidelity
+      // Try to fetch real repository details from GitHub API via Server Action to protect secrets
       let description = 'Tracked developer repository.';
       let stars = 0;
       let forks = 0;
       let openIssues = 0;
 
-      const headers: HeadersInit = {};
-      if (process.env.NEXT_PUBLIC_GITHUB_ACCESS_TOKEN) {
-        headers['Authorization'] = `token ${process.env.NEXT_PUBLIC_GITHUB_ACCESS_TOKEN}`;
-      }
-
-      const res = await fetch(`https://api.github.com/repos/${owner}/${name}`, { headers });
-      if (res.ok) {
-        const repoData = await res.json();
-        description = repoData.description || description;
-        stars = repoData.stargazers_count || 0;
-        forks = repoData.forks_count || 0;
-        openIssues = repoData.open_issues_count || 0;
+      const res = await fetchGitHubRepoDetailsAction(owner, name);
+      if (res.success && res.data) {
+        description = res.data.description;
+        stars = res.data.stars;
+        forks = res.data.forks;
+        openIssues = res.data.openIssues;
       }
 
       // Save using server actions
@@ -136,7 +132,7 @@ export default function TrackerPage() {
       );
 
       const newRepoItem: LocalRepo = {
-        id: dbRes.success && dbRes.data ? (dbRes.data as any).id : Math.random().toString(),
+        id: dbRes.success && dbRes.data ? (dbRes.data as { id: string }).id : Math.random().toString(),
         owner,
         name,
         description,
@@ -194,7 +190,7 @@ export default function TrackerPage() {
     );
   }
 
-  const { profile, prCount, issueCount, reviewCount } = profileData;
+  const { prCount, issueCount, reviewCount } = profileData;
 
   // Track metrics
   const prsMerged = Math.round(prCount * 0.82);
@@ -276,14 +272,14 @@ export default function TrackerPage() {
                     <FileText className="h-4 w-4 text-purple-400" /> Progress Reports
                   </h3>
                   <div className="flex gap-1 bg-slate-950/60 p-0.5 rounded-lg border border-slate-850">
-                    {['weekly', 'monthly', 'growth'].map((tab) => (
+                    {(['weekly', 'monthly', 'growth'] as const).map((tab) => (
                       <button
                         key={tab}
-                        onClick={() => setActiveReportTab(tab as any)}
+                        onClick={() => setActiveReportTab(tab)}
                         className={`px-2 py-1 rounded text-[9px] font-mono transition-all capitalize ${
                           activeReportTab === tab
                             ? 'bg-slate-800 text-white font-bold'
-                            : 'text-slate-500 hover:text-slate-300'
+                            : 'text-slate-500 hover:text-slate-350'
                         }`}
                       >
                         {tab}

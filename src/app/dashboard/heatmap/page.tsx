@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   createEmptyGrid,
   convertTextToGrid,
@@ -11,18 +11,14 @@ import {
 } from '../../../lib/pattern-utils';
 import { motion } from 'framer-motion';
 import {
-  Paintbrush,
   Eraser,
   Play,
   RotateCcw,
   Download,
   Terminal,
-  FileCode,
   Type,
   LayoutGrid,
-  Sparkles,
   Flame,
-  HelpCircle,
 } from 'lucide-react';
 
 const THEMES = {
